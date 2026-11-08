@@ -91,9 +91,6 @@ h2{font-family:var(--f-display);font-weight:600;font-size:20px;margin:0}
 .ritem.done .t{text-decoration:line-through;color:var(--muted)}
 .rsum{display:flex;justify-content:space-between;font-weight:600;font-size:16px}
 .ractions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
-.keypanel summary{cursor:pointer;font-weight:700}
-.keypanel[open] summary{margin-bottom:4px}
-.keypanel input{width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:500 14px var(--f-mono)}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;font-size:14px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -110,16 +107,7 @@ h2{font-family:var(--f-display);font-weight:600;font-size:20px;margin:0}
       <button id="tab-list" role="tab" aria-selected="false">Popis <span class="badge" id="badge">0</span></button>
     </div>
   </header>
-  <div class="status" id="status"><span class="pill">…</span><span>Provjeravam vezu s cijene.dev</span></div>
-  <details class="panel keypanel" id="keypanel">
-    <summary>Postavke cijena (API ključ)</summary>
-    <div class="step"><label class="label" for="key">cijene.dev API ključ</label>
-      <input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="Zalijepi ključ s cijene.dev">
-      <div class="note">Ključ se sprema samo u ovom pregledniku i šalje se samo na adresu ispod.</div></div>
-    <div class="step"><label class="label" for="apiurl">Adresa API-ja ili proxyja</label>
-      <input id="apiurl" type="url" spellcheck="false"></div>
-    <div class="chips"><button class="btn" id="savekey">Spremi i učitaj cijene</button><button class="btn ghost" id="forgetkey">Zaboravi ključ</button></div>
-  </details>
+  <div class="status" id="status"><span class="pill">…</span><span>Učitavam dnevni cjenik</span></div>
 
   <main id="view-plan" style="display:grid;gap:20px">
     <section class="panel" aria-label="Postavke">
@@ -143,6 +131,7 @@ h2{font-family:var(--f-display);font-weight:600;font-size:20px;margin:0}
 </div>
 <div class="toast" id="toast" hidden></div>
 
+<script src="products.js"></script>
 <script>
 const STORES=[
  {id:"konzum",name:"Konzum",color:"#D9232E",k:1.02},{id:"lidl",name:"Lidl",color:"#1F5FB4",k:0.94},
@@ -153,15 +142,6 @@ const CATS=[
  {id:"osnovno",name:"Osnovne namirnice",tile:"#F3E7C4"},{id:"meso",name:"Meso",tile:"#F6D3CF"},
  {id:"riba",name:"Riba",tile:"#CFE3F3"},{id:"zdravo",name:"Zdrava prehrana",tile:"#D5EED9"},
  {id:"vege",name:"Vege",tile:"#E1EDC9"},{id:"junk",name:"Junk food",tile:"#F5DDC0"}];
-// [id, prikazni naziv, pakiranje, okvirna cijena €, ikona, koliko osoba pokriva 1 kom, pojam za pretragu, mora sadržavati, ne smije sadržavati]
-const P={
- osnovno:[["kruh","Kruh bijeli","500 g",1.29,"🍞",2,"kruh bijeli","kruh","mrvic|tost"],["jaja","Jaja","10 kom",2.79,"🥚",3,"jaja 10","jaj","cokol|kinder|tjesten"],["mlijeko","Mlijeko","1 L",1.19,"🥛",1,"svježe mlijeko","mlijek","cokol|kakao|kokos|zob|soj|badem|kava|jogurt|kondenz|prah"],["tjest","Tjestenina špageti","500 g",1.09,"🍝",3,"špageti","spaget","umak"],["riza","Riža","1 kg",1.99,"🍚",4,"riža","riz","mlijec|napitak|kreker|ljuspic"],["pasirana","Pasirana rajčica","500 g",0.99,"🥫",3,"pasirana rajčica","pasir",""],["krumpir","Krumpir","2 kg",1.99,"🥔",3,"krumpir","krumpir","cips|pomfrit|pire|smrz"],["luk","Crveni luk","1 kg",1.29,"🧅",4,"luk crveni","luk","cips|prah|granul"],["ulje","Suncokretovo ulje","1 L",1.99,"🫗",6,"suncokretovo ulje","suncokret","sjemenk"],["sir","Sir Gauda","200 g",2.29,"🧀",2,"gauda","gauda",""],["maslac","Maslac","250 g",2.89,"🧈",4,"maslac","maslac","kikiriki|keks|kroasan"]],
- meso:[["piletina","Pileća prsa","500 g",4.99,"🍗",2,"pileća prsa","prsa","pure|pureć|naresk|dimljen"],["mljeveno","Mljeveno meso","500 g",4.49,"🥩",2,"mljeveno meso","mljeven","kava|papr"],["bataci","Pileći bataci","1 kg",4.29,"🍗",3,"pileći bataci","batak",""],["hrenovke","Hrenovke","400 g",2.49,"🌭",2,"hrenovke","hrenovk",""],["sunka","Šunka narezak","200 g",2.29,"🥓",2,"šunka narezak","sunk","pizza|sendvic"],["vrat","Svinjski vrat","1 kg",7.99,"🥩",3,"svinjski vrat","vrat","dimljen"],["kobasice","Kobasice","500 g",3.99,"🌭",2,"kobasice","kobas",""],["junetina","Junetina","500 g",7.49,"🥩",2,"junetina","junet|junec","juha|pasteta"]],
- riba:[["tuna","Tuna u komadima","3×80 g",3.99,"🥫",2,"tuna","tuna","salat|pasteta|namaz"],["oslic","Oslić file","400 g",4.49,"🐟",2,"oslić","oslic",""],["srdele","Srdele","",4.99,"🐟",3,"srdele","srdel","pasteta"],["stapici","Riblji štapići","300 g",2.99,"🐠",2,"riblji štapići","stapic",""],["skusa","Skuša","125 g",1.39,"🥫",1,"skuša","skus","pasteta"],["losos","Losos","250 g",5.99,"🍣",2,"losos","losos","namaz|pasteta"],["lignje","Lignje","500 g",6.49,"🦑",2,"lignje","lignj",""],["kozice","Kozice","400 g",5.49,"🦐",2,"kozice","kozic|skamp",""]],
- zdravo:[["zob","Zobene pahuljice","500 g",1.29,"🥣",3,"zobene pahuljice","zobene","cokol|keks|cokolad"],["jogurt","Grčki jogurt","400 g",1.89,"🍶",2,"grčki jogurt","grck",""],["banane","Banane","1 kg",1.49,"🍌",2,"banane","banan","cips|jogurt|sok|cokol"],["jabuke","Jabuke","1 kg",1.39,"🍎",2,"jabuke","jabuk","sok|ocat|cips|pita|strudl"],["brokula","Brokula","500 g",1.79,"🥦",2,"brokula","brokul",""],["mrkva","Mrkva","1 kg",0.99,"🥕",3,"mrkva","mrkv","sok"],["integralni","Integralni kruh","500 g",1.99,"🍞",2,"integralni kruh","integral",""],["svjezisir","Svježi sir","250 g",1.49,"🧀",2,"svježi sir","svjez",""],["spinat","Špinat","",1.99,"🥬",2,"špinat","spinat","tjesten|pita"],["avokado","Avokado","",2.49,"🥑",2,"avokado","avokad","ulje"],["orasi","Orašasti plodovi","200 g",3.49,"🥜",3,"mješavina orašastih","orasast|orah|badem","cokol"]],
- vege:[["slanutak","Slanutak","400 g",1.19,"🫘",2,"slanutak","slanut",""],["leca","Leća","500 g",1.99,"🫘",4,"leća","lec","kontakt"],["tofu","Tofu","200 g",2.29,"⬜",2,"tofu","tofu",""],["rajcice","Rajčice","1 kg",2.29,"🍅",3,"rajčica","rajc","pasir|ketchup|koncentrat|sok|umak|sus"],["paprika","Paprika","500 g",1.99,"🫑",2,"paprika","papri","mljeven|cips|ajvar|kobas"],["tikvice","Tikvice","1 kg",1.99,"🥒",3,"tikvice","tikvic",""],["sampinjoni","Šampinjoni","400 g",1.89,"🍄",2,"šampinjoni","sampinj","juha|umak"],["hummus","Humus","200 g",1.99,"🧆",2,"humus","humus|hummus",""],["grah","Grah","400 g",0.99,"🫘",2,"grah","grah","juha|varivo"],["zobeno","Zobeni napitak","1 L",1.79,"🥛",2,"zobeni napitak","zob","pahulj"]],
- junk:[["cips","Čips","150 g",1.99,"🍟",2,"čips","cips",""],["pizza","Smrznuta pizza","350 g",2.99,"🍕",1,"pizza","pizz","umak|tijesto|brasno|zacin"],["cokolada","Mliječna čokolada","100 g",1.49,"🍫",2,"mliječna čokolada","cokolad","napitak|mlijeko|keks|sladoled|liker"],["smoki","Smoki","150 g",1.29,"🥜",2,"smoki","smoki",""],["keksi","Keksi","300 g",1.79,"🍪",3,"keksi","keks",""],["kola","Coca-Cola","2 L",2.19,"🥤",3,"coca cola","cola",""],["sladoled","Sladoled","900 ml",3.49,"🍦",4,"sladoled","sladoled","kornet|posip"],["kokice","Kokice","",1.99,"🍿",3,"kokice","kokic",""],["bomboni","Gumeni bomboni","200 g",1.39,"🍬",3,"gumeni bomboni","bombon",""],["pivo","Pivo","0,5 L",1.19,"🍺",1,"pivo","pivo","bezalkohol"]]
-};
 const BUDGETS=[10,20,30,50,100];
 const $=s=>document.querySelector(s);
 const eur=n=>n.toFixed(2).replace(".",",")+" €";
@@ -183,46 +163,10 @@ function priceOf(id){const c=chosen(id);return c?c.price:estPrice(S.store,byId[i
 function available(id){return !S.live||cands(id).length>0}
 const totalOf=()=>Object.entries(S.cart).reduce((a,[id,q])=>a+priceOf(id)*q,0);
 
-// ---- veza s cijene.dev (izravno iz preglednika ili preko vlastitog proxyja) ----
-const DEFAULT_API="https://api.cijene.dev/v1";
-const CFG={key:"",api:DEFAULT_API};
-try{const c=JSON.parse(localStorage.getItem("kosarica-cfg")||"null");if(c)Object.assign(CFG,c)}catch(e){}
-const saveCfg=()=>{try{localStorage.setItem("kosarica-cfg",JSON.stringify(CFG))}catch(e){}};
-let LAST_ERR="";
-const num=x=>{const n=parseFloat(String(x??"").replace(",","."));return isFinite(n)&&n>0?n:null};
-function normalize(raw,chain){
-  const list=Array.isArray(raw)?raw:raw.products||raw.results||raw.items||[];const out=[];
-  for(const p of list)for(const e of (p.chains||p.prices||[p])){
-    const c=String(e.chain||e.chain_code||e.code||p.chain||"").toLowerCase();
-    if(chain&&c&&c!==chain)continue;
-    const price=num(e.min_price)??num(e.price)??num(e.avg_price)??num(e.special_price)??num(e.regular_price);
-    if(!price)continue;
-    out.push({ean:p.ean||e.ean||null,name:p.name||e.name||"",brand:p.brand||e.brand||"",quantity:p.quantity||e.quantity||"",unit:p.unit||e.unit||"",price,date:e.price_date||e.date||null});
-  }return out}
-const searchCache={};
-async function apiSearch(q,chain){
-  const k=chain+":"+q;if(searchCache[k])return searchCache[k];
-  const qs=new URLSearchParams({q,limit:"50",chains:chain});
-  const headers={Accept:"application/json"};if(CFG.key)headers.Authorization="Bearer "+CFG.key;
-  let r;
-  try{r=await fetch(CFG.api.replace(/\/$/,"")+"/products/?"+qs,{headers})}
-  catch(e){LAST_ERR="cors";throw new Error("Preglednik je blokirao poziv prema cijene.dev. Treba proxy (vidi README).")}
-  if(r.status===401||r.status===403){LAST_ERR="key";throw new Error("API ključ nije prihvaćen. Provjeri ga na cijene.dev.")}
-  if(!r.ok){LAST_ERR="http";throw new Error("cijene.dev je vratio grešku "+r.status)}
-  LAST_ERR="";return searchCache[k]=normalize(await r.json(),chain);
-}
-async function fetchPrices(ids){
-  const store=S.store;DATA[store]=DATA[store]||{};
-  const todo=ids.filter(id=>!(id in DATA[store]));let i=0,failed=0;
-  async function worker(){while(i<todo.length){const id=todo[i++];const it=byId[id].it;
-    try{const items=await apiSearch(it[6],store);
-      const must=new RegExp(it[7]),ex=it[8]?new RegExp(it[8]):null;
-      DATA[store][id]=items.filter(x=>{const n=strip(x.name+" "+x.brand);return must.test(n)&&!(ex&&ex.test(n))})
-        .sort((a,b)=>a.price-b.price).slice(0,8);
-    }catch(e){failed++;if(failed===1)toast(e.message)}}}
-  await Promise.all([worker(),worker(),worker(),worker()]);
-  return failed;
-}
+// ---- cijene iz prices.json (GitHub Action ga osvježava svaki dan iz arhive cijene.dev) ----
+let PRICES=null;
+const loadPrices=fetch("prices.json",{cache:"no-cache"}).then(r=>r.ok?r.json():null).then(j=>{if(j&&j.chains){PRICES=j;LIVE=true;for(const c in j.chains)DATA[c]=j.chains[c]}}).catch(()=>{});
+async function fetchPrices(){await loadPrices;if(PRICES&&!DATA[S.store])DATA[S.store]={};return 0}
 
 function plan(){
   const lists=S.cats.map(c=>P[c].filter(it=>available(it[0])).map(it=>({id:it[0],base:Math.ceil(S.persons/it[5])})));
@@ -233,9 +177,10 @@ function plan(){
 }
 
 function setStatus(){const el=$("#status");el.className="status "+(S.live?"live":"est");
-  const dates=Object.values(DATA[S.store]||{}).flat().map(x=>x.date).filter(Boolean).sort();const d=dates[dates.length-1];
-  el.innerHTML=S.live?`<span class="pill">Stvarne cijene</span><span>Podaci s cijene.dev${d?`, cjenik od ${new Date(d).toLocaleDateString("hr-HR")}`:""}. Cijene su najniže u lancu i mogu se razlikovati po poslovnici.</span>`
-    :`<span class="pill">Okvirne cijene</span><span>${LAST_ERR==="cors"?"Preglednik je blokirao poziv prema cijene.dev, pa prikazujem procjene. Rješenje je proxy (upute u README-u).":LAST_ERR==="key"?"API ključ nije prihvaćen, pa prikazujem procjene.":CFG.key?"Stvarne cijene se nisu učitale, pa prikazujem procjene.":"Prikazujem procjene. Upiši svoj cijene.dev ključ ispod za stvarne cijene."}</span>`}
+  const d=PRICES&&PRICES.date;const has=PRICES&&PRICES.chains[S.store]&&Object.keys(PRICES.chains[S.store]).length;
+  el.innerHTML=S.live&&has?`<span class="pill">Stvarne cijene</span><span>Cjenik ${STORES.find(s=>s.id===S.store).name}${d?` od ${new Date(d).toLocaleDateString("hr-HR")}`:""}, izvor cijene.dev. Prikazana je najniža cijena u lancu, u tvojoj poslovnici može biti drukčija.</span>`
+    :S.live?`<span class="pill">Nema podataka</span><span>Za ${STORES.find(s=>s.id===S.store).name} danas nema cjenika. Odaberi drugu trgovinu.</span>`
+    :`<span class="pill">Okvirne cijene</span><span>Dnevni cjenik još nije učitan, pa prikazujem procjene.</span>`}
 
 function renderControls(){
   $("#stores").innerHTML=STORES.map(s=>`<button class="chip" data-s="${s.id}" aria-pressed="${S.store===s.id}"><span class="dot" style="background:${s.color}"></span>${s.name}</button>`).join("");
@@ -311,22 +256,11 @@ document.addEventListener("change",e=>{const d=e.target.dataset;if(d.ck){S.check
 $("#custom").addEventListener("input",e=>{const v=parseFloat(e.target.value);if(v>=5){S.budget=v;document.querySelectorAll("[data-b]").forEach(x=>x.setAttribute("aria-pressed","false"))}});
 
 renderControls();
-function boot(){
-  LIVE=!!CFG.key||CFG.api!==DEFAULT_API;
-  $("#key").value=CFG.key;$("#apiurl").value=CFG.api;
-  if(!LIVE)$("#keypanel").open=true;
+loadPrices.finally(()=>{
   if(S.live&&!LIVE)S.live=false;
-  if(!Object.keys(S.cart).length&&!LIVE)plan();
-  renderResults();
-  if(LIVE&&!Object.keys(S.cart).length)apply();
-  else if(S.live)fetchPrices(Object.keys(S.cart)).then(renderResults);
-}
-$("#savekey").addEventListener("click",()=>{CFG.key=$("#key").value.trim();CFG.api=($("#apiurl").value.trim()||DEFAULT_API);saveCfg();
-  for(const k in DATA)delete DATA[k];for(const k in searchCache)delete searchCache[k];
-  LIVE=!!CFG.key||CFG.api!==DEFAULT_API;$("#keypanel").open=false;apply()});
-$("#forgetkey").addEventListener("click",()=>{CFG.key="";CFG.api=DEFAULT_API;try{localStorage.removeItem("kosarica-cfg")}catch(e){}
-  $("#key").value="";$("#apiurl").value=DEFAULT_API;LIVE=false;S.live=false;plan();renderResults();toast("Ključ obrisan")});
-boot();
+  if(!Object.keys(S.cart).length){if(LIVE)apply();else{plan();renderResults()}}
+  else renderResults();
+});
 </script>
 </body>
 </html>

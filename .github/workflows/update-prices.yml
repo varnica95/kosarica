@@ -1,0 +1,62 @@
+name: Osvježi cijene
+
+on:
+  schedule:
+    - cron: "17 7 * * *"   # svaki dan oko 8:17 po hrvatskom vremenu
+  workflow_dispatch: {}      # ručno pokretanje: Actions → Osvježi cijene → Run workflow
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-prices
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Preuzmi dnevnu arhivu s cijene.dev
+        id: dl
+        run: |
+          set -e
+          URL=""; DATE=""
+          # 1) popis dostupnih arhiva
+          if curl -fsSL https://api.cijene.dev/v0/list -o list.json; then
+            read -r DATE URL < <(node -e '
+              const j=JSON.parse(require("fs").readFileSync("list.json","utf8"));
+              const a=(j.archives||j||[]).filter(x=>x&&x.url).sort((x,y)=>String(y.date).localeCompare(String(x.date)));
+              if(a[0])console.log(a[0].date+" "+a[0].url);' || true)
+          fi
+          # 2) rezerva: arhiva po datumu (danas, jučer, prekjučer)
+          if [ -z "$URL" ]; then
+            for d in 0 1 2; do
+              D=$(date -u -d "-$d day" +%F)
+              if curl -fsSI "https://api.cijene.dev/v0/archive/$D.zip" >/dev/null; then URL="https://api.cijene.dev/v0/archive/$D.zip"; DATE=$D; break; fi
+            done
+          fi
+          if [ -z "$URL" ]; then echo "Arhiva nije pronađena"; exit 1; fi
+          echo "Arhiva: $DATE $URL"
+          curl -fsSL "$URL" -o archive.zip
+          mkdir -p archive && unzip -q archive.zip -d archive
+          ls archive | head -20
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
+
+      - name: Složi prices.json
+        run: node scripts/build-prices.js archive "${{ steps.dl.outputs.date }}" prices.json
+
+      - name: Spremi promjene
+        run: |
+          rm -rf archive archive.zip list.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add prices.json
+          if git diff --cached --quiet; then echo "Nema promjena"; exit 0; fi
+          git commit -m "Cijene za ${{ steps.dl.outputs.date }}"
+          git push

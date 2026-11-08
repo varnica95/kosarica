@@ -6,36 +6,37 @@ Dobiješ i popis za kupnju s kvačicama.
 **Aplikacija:** https://varnica95.github.io/kosarica/
 
 Trgovine: Konzum, Lidl, Kaufland, Spar, Plodine, Studenac, Tommy, Eurospin.
-Cijene dolaze s [cijene.dev](https://cijene.dev), a slike proizvoda s [Open Food Facts](https://world.openfoodfacts.org) (prema barkodu, gdje postoje).
 
-## Stvarne cijene
+## Odakle su cijene
 
-1. Registriraj se na cijene.dev i uzmi besplatni API ključ (za nekomercijalnu upotrebu).
-2. U aplikaciji otvori **Postavke cijena**, zalijepi ključ i stisni **Spremi i učitaj cijene**.
+Trgovački lanci u Hrvatskoj svaki dan objavljuju cjenike, a [cijene.dev](https://cijene.dev) ih skuplja u jednu besplatnu dnevnu arhivu.
+GitHub Action `Osvježi cijene` svako jutro oko 8:17:
 
-Ključ se sprema samo u tvom pregledniku (`localStorage`) i nikad ne ide u ovaj repozitorij.
-Bez ključa aplikacija radi s okvirnim (procijenjenim) cijenama.
+1. preuzme najnoviju arhivu (bez registracije i API ključa),
+2. skriptom `scripts/build-prices.js` izvuče samo proizvode koje aplikacija koristi,
+3. spremi ih u `prices.json` i to commita.
 
-## Ako preglednik blokira poziv (CORS)
+Aplikacija čita `prices.json`, pa ne treba nikakav ključ. Za svaki proizvod uzima najnižu cijenu u lancu, uključujući akcijske cijene,
+pa u tvojoj poslovnici cijena može biti malo drukčija. Slike proizvoda dolaze s [Open Food Facts](https://world.openfoodfacts.org) prema barkodu, gdje postoje.
 
-Ako aplikacija javi da je preglednik blokirao poziv prema cijene.dev, cijene.dev ne dopušta izravne pozive sa stranica.
-Tada postavi besplatni Cloudflare Worker iz datoteke `worker.js`:
+Dok `prices.json` ne postoji, aplikacija prikazuje okvirne (procijenjene) cijene.
 
-1. Na dash.cloudflare.com otvori **Workers & Pages → Create → Worker**, zalijepi sadržaj `worker.js` i stisni **Deploy**.
-2. U postavkama workera dodaj Secret `CIJENE_API_KEY` sa svojim ključem.
-3. U aplikaciji pod **Adresa API-ja ili proxyja** upiši adresu workera (npr. `https://kosarica.ime.workers.dev`), ključ ostavi prazan i spremi.
+### Ručno osvježavanje
 
-## Lokalno pokretanje (alternativa)
+**Actions → Osvježi cijene → Run workflow.**
 
-`server.js` je mali Node server (Node 18+, bez paketa) koji radi isto na tvom računalu:
+## Prilagodba proizvoda
+
+Popis proizvoda je u `products.js`. Svaki redak sadrži: oznaku, naziv, pakiranje, okvirnu cijenu, ikonu, koliko osoba pokriva jedan komad,
+pojam za pretragu te riječi koje naziv mora sadržavati i one koje ne smije (regularni izrazi bez dijakritika).
+Nakon promjene pokreni workflow ručno da se `prices.json` osvježi.
+
+## Lokalno pokretanje (alternativa s API ključem)
+
+`server.js` je mali Node server (Node 18+, bez paketa) koji cijene dohvaća uživo preko cijene.dev API-ja:
 
 ```
 CIJENE_API_KEY=tvoj_kljuc node server.js
 ```
 
-Zatim otvori http://localhost:3000. Lokalna verzija koristi `local.html`.
-
-## Prilagodba
-
-Popis proizvoda i pojmova za pretragu je na vrhu skripte u `index.html` (objekt `P`):
-naziv, pakiranje, okvirna cijena, ikona, koliko osoba pokriva jedan komad, pojam za pretragu te riječi koje naziv mora ili ne smije sadržavati.
+Zatim otvori http://localhost:3000 (koristi `local.html`). `worker.js` je ista ideja kao Cloudflare Worker.
