@@ -57,6 +57,13 @@ function findChainDir(chain) {
   return null;
 }
 
+// "500 g" -> 500, "1 kg" -> 1000, "3×80 g" -> 240, "0,5 L" -> 500; nepoznato -> null
+function amount(str) {
+  const m = String(str || "").toLowerCase().replace(",", ".").match(/^(?:(\d+)\s*[x×]\s*)?([\d.]+)\s*(kg|g|ml|l)\b/);
+  if (!m) return null;
+  const n = parseFloat(m[2]) * (m[1] ? parseInt(m[1]) : 1);
+  return m[3] === "kg" || m[3] === "l" ? n * 1000 : n;
+}
 function median(a) { const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }
 // "KRUH POLUBIJELI 500g" -> "Kruh polubijeli 500g"
 function niceName(s) {
@@ -81,7 +88,7 @@ const PET = /(^|[^a-z])(mm|gf|felix|gourmet|lechat|whiskas|sheba|purina|friskies
 const terms = [];
 for (const cat in P) for (const it of P[cat]) {
   terms.push({
-    id: it[0], est: it[3],
+    id: it[0], est: it[3], size: amount(it[2]),
     start: new RegExp("^(" + it[7] + ")"),            // naziv počinje traženom riječju (prednost)
     must: new RegExp("(^|[^a-z])(" + it[7] + ")"),    // ili je sadrži kao zasebnu riječ
     ex: it[8] ? new RegExp(it[8]) : null,
@@ -132,13 +139,19 @@ for (const cat in P) for (const it of P[cat]) {
       for (const [t, tier] of p.ts) {
         const ratio = p.price / estOf[t];
         if (ratio < 0.3 || ratio > 3.5) continue; // premala pakiranja, greške i krivi proizvodi
-        (byTerm[t] = byTerm[t] || []).push({ ...p, tier });
+        const size = amount(niceQty(p.quantity, p.unit));
+        const want = terms.find((x) => x.id === t).size;
+        const sizeOk = !want || !size ? 1 : (size / want >= 0.4 && size / want <= 2.4 ? 1 : 0);
+        (byTerm[t] = byTerm[t] || []).push({ ...p, tier, sizeOk });
       }
     }
     const out = {};
     for (const t in byTerm) {
-      const best = Math.min(...byTerm[t].map((x) => x.tier));
-      out[t] = byTerm[t].filter((x) => x.tier === best).sort((a, b) => a.price - b.price).slice(0, KEEP)
+      // prednost: pakiranje slične veličine, zatim naziv koji počinje traženom riječju, zatim cijena
+      let list = byTerm[t];
+      if (list.some((x) => x.sizeOk)) list = list.filter((x) => x.sizeOk);
+      const best = Math.min(...list.map((x) => x.tier));
+      out[t] = list.filter((x) => x.tier === best).sort((a, b) => a.price - b.price).slice(0, KEEP)
         .map(({ name, brand, ean, quantity, unit, price }) => ({ name: niceName(name), brand: niceName(brand), ean, quantity: niceQty(quantity, unit), unit: "", price: Math.round(price * 100) / 100 }));
     }
     result.chains[chain] = out;
