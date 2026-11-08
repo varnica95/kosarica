@@ -91,6 +91,27 @@ h2{font-family:var(--f-display);font-weight:600;font-size:20px;margin:0}
 .ritem.done .t{text-decoration:line-through;color:var(--muted)}
 .rsum{display:flex;justify-content:space-between;font-weight:600;font-size:16px}
 .ractions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.seg{display:inline-flex;background:var(--sunk);border-radius:12px;padding:4px;gap:4px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--muted);font:600 14px var(--f-body);padding:9px 14px;border-radius:9px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.rcard{background:var(--surface);border:1.5px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:10px;align-content:start}
+.rcard.on{border-color:var(--green);box-shadow:inset 0 0 0 1px var(--green)}
+.rcard.na{opacity:.6}
+.rhead{display:grid;grid-template-columns:48px 1fr;gap:10px;align-items:center}
+.remoji{width:48px;height:48px;border-radius:12px;display:grid;place-items:center;font-size:26px;background:var(--yellow-soft)}
+.rname{font-family:var(--f-display);font-weight:600;font-size:17px;line-height:1.15;text-wrap:balance}
+.rmeta{font-size:12px;color:var(--muted)}
+.rcost{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.rcost .price{font-size:18px}
+.ing{margin:0;padding:0;list-style:none;display:grid;gap:3px;font-size:13px}
+.ing li{display:flex;justify-content:space-between;gap:8px}
+.ing li span:last-child{font-family:var(--f-mono);color:var(--muted);white-space:nowrap}
+.rcard details{font-size:13px}
+.rcard summary{cursor:pointer;font-weight:600;color:var(--green)}
+.rcard ol{margin:8px 0 0;padding-left:20px;display:grid;gap:4px}
+.rbtn{border:1.5px solid var(--green);background:var(--surface);color:var(--green);font:700 14px var(--f-body);padding:9px 12px;border-radius:10px;cursor:pointer}
+.rcard.on .rbtn{background:var(--green);color:var(--green-ink)}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;font-size:14px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -100,7 +121,7 @@ h2{font-family:var(--f-display);font-weight:600;font-size:20px;margin:0}
   <header>
     <div>
       <h1>Košarica <span>do budžeta</span></h1>
-      <p class="sub">Odaberi trgovinu, broj osoba, budžet i vrstu hrane. Složit ćemo popis koji stane u iznos.</p>
+      <p class="sub">Odaberi trgovinu, broj osoba, budžet i vrstu hrane. Predložit ćemo jela ili namirnice koje stanu u iznos.</p>
     </div>
     <div class="tabs" role="tablist">
       <button id="tab-plan" role="tab" aria-selected="true">Planiranje</button>
@@ -111,6 +132,7 @@ h2{font-family:var(--f-display);font-weight:600;font-size:20px;margin:0}
 
   <main id="view-plan" style="display:grid;gap:20px">
     <section class="panel" aria-label="Postavke">
+      <div class="step"><div class="label">Što planiraš</div><div class="seg" id="modes"></div></div>
       <div class="step"><div class="label">Trgovina</div><div class="chips" id="stores"></div></div>
       <div class="step"><div class="label">Broj osoba</div>
         <div class="stepper"><button id="pminus" aria-label="Manje osoba">−</button><output id="persons">2</output><button id="pplus" aria-label="Više osoba">+</button><small id="psub">osobe</small></div>
@@ -119,11 +141,12 @@ h2{font-family:var(--f-display);font-weight:600;font-size:20px;margin:0}
         <div class="chips" id="budgets"></div>
         <label class="custom note" for="custom">ili upiši: <input id="custom" type="number" min="5" max="500" step="1" inputmode="decimal" placeholder="npr. 40"> €</label>
       </div>
-      <div class="step"><div class="label">Kategorije (može više)</div><div class="chips" id="cats"></div></div>
+      <div class="step"><div class="label" id="catlabel">Kategorije (može više)</div><div class="chips" id="cats"></div></div>
       <button class="btn" id="apply">Složi popis</button>
     </section>
     <section class="panel meter" id="meter" aria-live="polite"></section>
-    <section class="section"><h2>U košarici</h2><div class="grid" id="picked"></div></section>
+    <section class="section" id="recsec"><h2>Jela</h2><p class="note" id="recnote"></p><div class="rgrid" id="recipes"></div></section>
+    <section class="section"><h2 id="pickedh">U košarici</h2><div class="grid" id="picked"></div></section>
     <section class="section" id="altsec"><h2>Možeš još dodati</h2><div class="grid" id="alts"></div></section>
   </main>
 
@@ -132,6 +155,7 @@ h2{font-family:var(--f-display);font-weight:600;font-size:20px;margin:0}
 <div class="toast" id="toast" hidden></div>
 
 <script src="products.js"></script>
+<script src="recipes.js"></script>
 <script>
 const STORES=[
  {id:"konzum",name:"Konzum",color:"#D9232E",k:1.02},{id:"lidl",name:"Lidl",color:"#1F5FB4",k:0.94},
@@ -141,7 +165,8 @@ const STORES=[
 const CATS=[
  {id:"osnovno",name:"Osnovne namirnice",tile:"#F3E7C4"},{id:"meso",name:"Meso",tile:"#F6D3CF"},
  {id:"riba",name:"Riba",tile:"#CFE3F3"},{id:"zdravo",name:"Zdrava prehrana",tile:"#D5EED9"},
- {id:"vege",name:"Vege",tile:"#E1EDC9"},{id:"junk",name:"Junk food",tile:"#F5DDC0"}];
+ {id:"vege",name:"Vege",tile:"#E1EDC9"},{id:"junk",name:"Junk food",tile:"#F5DDC0"},
+ {id:"dodatno",name:"Ostale namirnice",tile:"#E6E0EE",hidden:true}];
 const BUDGETS=[10,20,30,50,100];
 const $=s=>document.querySelector(s);
 const eur=n=>n.toFixed(2).replace(".",",")+" €";
@@ -152,7 +177,7 @@ const byId={};for(const c in P)for(const it of P[c])byId[it[0]]={it,cat:c};
 
 let LIVE=false;           // radi li veza s cijene.dev
 const DATA={};            // DATA[store][id] = [{name,brand,quantity,unit,price,ean,date}] ili [] ako nema
-let S={store:"konzum",persons:2,budget:30,cats:["osnovno","meso","zdravo"],cart:{},pick:{},checked:{},live:false};
+let S={store:"konzum",persons:2,budget:30,cats:["osnovno","meso","zdravo"],cart:{},pick:{},checked:{},live:false,mode:"recepti",recipes:[]};
 try{const s=JSON.parse(localStorage.getItem("kosarica-live")||"null");if(s&&s.store)S=Object.assign(S,s)}catch(e){}
 const save=()=>{try{localStorage.setItem("kosarica-live",JSON.stringify(S))}catch(e){}};
 
@@ -176,6 +201,36 @@ function plan(){
   S.cart=cart;S.checked={};
 }
 
+// ---- recepti ----
+const recById={};for(const r of RECIPES)recById[r.id]=r;
+function recipeCart(ids){const sum={};for(const rid of ids){const r=recById[rid];if(!r)continue;for(const [id,f] of r.ing)sum[id]=(sum[id]||0)+f*S.persons}
+  const cart={};for(const id in sum)cart[id]=Math.max(1,Math.ceil(sum[id]-1e-9));return cart}
+const cartCost=c=>Object.entries(c).reduce((a,[id,q])=>a+priceOf(id)*q,0);
+const recipeOk=r=>r.ing.every(([id])=>available(id));
+const recipeList=()=>RECIPES.filter(r=>r.tags.some(t=>S.cats.includes(t)));
+function planRecipes(){
+  const cand=recipeList().filter(recipeOk).map(r=>({r,c:cartCost(recipeCart([r.id]))})).sort((a,b)=>a.c-b.c);
+  const chosen=[];for(const {r} of cand){const next=[...chosen,r.id];if(cartCost(recipeCart(next))<=S.budget+1e-9)chosen.push(r.id)}
+  S.recipes=chosen;S.cart=recipeCart(chosen);S.checked={};
+}
+function packLabel(id,q){const x=info(id);return `${q}× ${x.sub||x.name}`}
+function renderRecipes(){
+  const on=$("#recsec");on.hidden=S.mode!=="recepti";if(on.hidden)return;
+  const list=recipeList();const cur=cartCost(S.cart);
+  $("#recnote").textContent=list.length?`Odabrano ${S.recipes.length} od ${list.length} jela. Zajedničke namirnice se zbrajaju, pa je ukupni iznos često manji od zbroja jela.`:"Odaberi barem jednu vrstu prehrane.";
+  $("#recipes").innerHTML=list.map(r=>{const sel=S.recipes.includes(r.id),ok=recipeOk(r);
+    const alone=recipeCart([r.id]),cost=cartCost(alone);
+    const extra=sel?null:cartCost(recipeCart([...S.recipes,r.id]))-cur;
+    const missing=r.ing.filter(([id])=>!available(id)).map(([id])=>byId[id].it[1]);
+    return `<article class="rcard${sel?" on":""}${ok?"":" na"}">
+      <div class="rhead"><div class="remoji">${r.emoji}</div><div style="min-width:0"><div class="rname">${r.name}</div><div class="rmeta">${r.time} · ${r.tags.map(t=>CATS.find(c=>c.id===t).name).join(", ")}</div></div></div>
+      <div class="rcost"><span class="price">${eur(cost)}</span><span class="rmeta">${eur(cost/S.persons)} po osobi${extra!=null&&ok?` · uz odabrano +${eur(extra)}`:""}</span></div>
+      <ul class="ing">${r.ing.map(([id])=>{const x=info(id);return `<li><span>${byId[id].it[1]}</span><span>${available(id)?packLabel(id,alone[id]):"nema"}</span></li>`}).join("")}</ul>
+      ${r.imas?`<div class="rmeta">Treba ti i: ${r.imas}</div>`:""}
+      <details><summary>Kako se radi</summary><ol>${r.steps.map(x=>`<li>${x}</li>`).join("")}</ol></details>
+      ${ok?`<button class="rbtn" data-rec="${r.id}">${sel?"✓ U košarici":"Dodaj jelo"}</button>`:`<div class="rmeta">Nema u ovoj trgovini: ${missing.join(", ")}</div>`}
+    </article>`}).join("");
+}
 function setStatus(){const el=$("#status");el.className="status "+(S.live?"live":"est");
   const d=PRICES&&PRICES.date;const has=PRICES&&PRICES.chains[S.store]&&Object.keys(PRICES.chains[S.store]).length;
   el.innerHTML=S.live&&has?`<span class="pill">Stvarne cijene</span><span>Cjenik ${STORES.find(s=>s.id===S.store).name}${d?` od ${new Date(d).toLocaleDateString("hr-HR")}`:""}, izvor cijene.dev. Prikazana je najniža cijena u lancu, u tvojoj poslovnici može biti drukčija.</span>`
@@ -187,7 +242,10 @@ function renderControls(){
   $("#persons").textContent=S.persons;$("#psub").textContent=plural(S.persons);
   $("#budgets").innerHTML=BUDGETS.map(b=>`<button class="chip" data-b="${b}" aria-pressed="${S.budget===b}">${b} €</button>`).join("");
   $("#custom").value=BUDGETS.includes(S.budget)?"":S.budget;
-  $("#cats").innerHTML=CATS.map(c=>`<button class="chip" data-c="${c.id}" aria-pressed="${S.cats.includes(c.id)}">${c.name}</button>`).join("");
+  $("#modes").innerHTML=[["recepti","Jela po receptima"],["slobodno","Slobodna kupnja"]].map(([m,n])=>`<button data-mode="${m}" aria-pressed="${S.mode===m}">${n}</button>`).join("");
+  $("#catlabel").textContent=S.mode==="recepti"?"Vrsta prehrane (može više)":"Kategorije (može više)";
+  $("#apply").textContent=S.mode==="recepti"?"Predloži jela":"Složi popis";
+  $("#cats").innerHTML=CATS.filter(c=>!c.hidden).map(c=>`<button class="chip" data-c="${c.id}" aria-pressed="${S.cats.includes(c.id)}">${c.name}</button>`).join("");
 }
 function info(id){const {it,cat}=byId[id];const c=chosen(id);
   return {cat,icon:it[4],name:c?c.name:it[1],sub:c?[c.brand,[c.quantity,c.unit].filter(Boolean).join(" ")].filter(Boolean).join(" · "):it[2],ean:c?.ean,n:cands(id).length}}
@@ -207,8 +265,11 @@ function renderResults(){
   m.innerHTML=`<div class="meter-top"><div><div class="label">${st.name} · ${S.persons} ${plural(S.persons)}</div><div class="total">${eur(t)} <small>/ ${eur(S.budget)}</small></div></div>
   <div class="note">${over?`Prešao si budžet za <b>${eur(t-S.budget)}</b>. Makni nešto.`:`Ostaje ti <b>${eur(S.budget-t)}</b>`}</div></div><div class="bar"><i style="width:${pct}%"></i></div>`;
   const ids=Object.keys(S.cart);
-  $("#picked").innerHTML=ids.length?ids.map(id=>card(id,S.cart[id])).join(""):`<div class="empty">Košarica je prazna. Odaberi postavke i stisni <b>Složi popis</b>.</div>`;
-  const alts=S.cats.flatMap(c=>P[c].map(it=>it[0])).filter(id=>!S.cart[id]&&available(id));
+  const rec=S.mode==="recepti";
+  $("#pickedh").textContent=rec?"Namirnice za odabrana jela":"U košarici";
+  $("#picked").innerHTML=ids.length?ids.map(id=>card(id,S.cart[id])).join(""):`<div class="empty">${rec?"Još nema odabranih jela. Stisni <b>Predloži jela</b> ili dodaj jelo iznad.":"Košarica je prazna. Odaberi postavke i stisni <b>Složi popis</b>."}</div>`;
+  renderRecipes();
+  const alts=rec?[]:S.cats.flatMap(c=>P[c].map(it=>it[0])).filter(id=>!S.cart[id]&&available(id));
   $("#altsec").hidden=!alts.length;$("#alts").innerHTML=alts.map(id=>card(id,0,true)).join("");
   $("#badge").textContent=ids.length;renderReceipt();setStatus();loadImages();save();
 }
@@ -216,7 +277,7 @@ function renderReceipt(){
   const ids=Object.keys(S.cart),st=STORES.find(s=>s.id===S.store);
   if(!ids.length){$("#receipt").innerHTML=`<h3>Popis za kupnju</h3><div class="empty">Još nema ničega. Složi popis na kartici Planiranje.</div>`;return}
   const left=ids.filter(id=>!S.checked[id]).length;
-  $("#receipt").innerHTML=`<h3>${st.name} · popis</h3><div class="hd">${S.persons} ${plural(S.persons)} · budžet ${eur(S.budget)} · ${left} od ${ids.length} preostalo</div><hr>`+
+  $("#receipt").innerHTML=`<h3>${st.name} · popis</h3><div class="hd">${S.persons} ${plural(S.persons)} · budžet ${eur(S.budget)} · ${left} od ${ids.length} preostalo</div>${S.mode==="recepti"&&S.recipes.length?`<div class="hd">Jela: ${S.recipes.map(r=>recById[r]?.name).filter(Boolean).join(", ")}</div>`:""}<hr>`+
    CATS.filter(g=>ids.some(id=>byId[id].cat===g.id)).map(g=>`<div class="rgroup"><div class="gname">${g.name}</div>${ids.filter(id=>byId[id].cat===g.id).map(id=>{const x=info(id),q=S.cart[id];
     return `<label class="ritem${S.checked[id]?" done":""}" for="ck-${id}"><input type="checkbox" id="ck-${id}" data-ck="${id}" ${S.checked[id]?"checked":""}><span class="t">${q}× ${x.name} <span style="color:var(--muted)">${x.sub}</span></span><span>${eur(priceOf(id)*q)}</span></label>`}).join("")}</div>`).join("")+
    `<hr><div class="rsum"><span>UKUPNO</span><span>${eur(totalOf())}</span></div><div class="ractions"><button class="btn ghost" id="copy">Kopiraj popis</button><button class="btn ghost" id="reset">Odznači sve</button></div>`;
@@ -229,14 +290,17 @@ async function apply(){
   S.live=LIVE;S.pick={};
   if(LIVE){const b=$("#apply");b.disabled=true;b.textContent="Dohvaćam cijene…";
     const ids=S.cats.flatMap(c=>P[c].map(it=>it[0]));const failed=await fetchPrices(ids);
-    b.disabled=false;b.textContent="Složi popis";
+    b.disabled=false;renderControls();
     if(failed===ids.length){S.live=false;toast("Cijene se nisu učitale, prikazujem procjene")}}
-  plan();renderResults();if(Object.keys(S.cart).length)toast("Popis složen");else toast("Ništa ne stane u taj budžet");
-  $("#meter").scrollIntoView({behavior:"smooth",block:"start"});
+  if(S.mode==="recepti"){planRecipes();renderResults();toast(S.recipes.length?`Predloženo jela: ${S.recipes.length}`:"Nijedno jelo ne stane u taj budžet")}
+  else{plan();renderResults();if(Object.keys(S.cart).length)toast("Popis složen");else toast("Ništa ne stane u taj budžet")}
+  (S.mode==="recepti"?$("#recsec"):$("#meter")).scrollIntoView({behavior:"smooth",block:"start"});
 }
 
 document.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const d=b.dataset;
-  if(d.s){S.store=d.s;renderControls()}
+  if(d.mode){S.mode=d.mode;renderControls();apply()}
+  else if(d.rec){S.recipes=S.recipes.includes(d.rec)?S.recipes.filter(x=>x!==d.rec):[...S.recipes,d.rec];S.cart=recipeCart(S.recipes);renderResults()}
+  else if(d.s){S.store=d.s;renderControls()}
   else if(d.b){S.budget=+d.b;renderControls()}
   else if(d.c){S.cats=S.cats.includes(d.c)?S.cats.filter(x=>x!==d.c):[...S.cats,d.c];renderControls()}
   else if(d.inc){S.cart[d.inc]++;renderResults()}
@@ -249,7 +313,7 @@ document.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)r
   else if(b.id==="tab-plan")tab("plan");else if(b.id==="tab-list")tab("list");
   else if(b.id==="reset"){S.checked={};renderReceipt();save()}
   else if(b.id==="copy"){const st=STORES.find(s=>s.id===S.store);
-    const txt=`Popis – ${st.name}\n`+Object.entries(S.cart).map(([id,q])=>{const x=info(id);return `☐ ${q}× ${x.name}${x.sub?" ("+x.sub+")":""} – ${eur(priceOf(id)*q)}`}).join("\n")+`\nUkupno: ${eur(totalOf())}`;
+    const txt=`Popis – ${st.name}\n`+(S.mode==="recepti"&&S.recipes.length?`Jela: ${S.recipes.map(r=>recById[r]?.name).filter(Boolean).join(", ")}\n`:"")+Object.entries(S.cart).map(([id,q])=>{const x=info(id);return `☐ ${q}× ${x.name}${x.sub?" ("+x.sub+")":""} – ${eur(priceOf(id)*q)}`}).join("\n")+`\nUkupno: ${eur(totalOf())}`;
     Promise.resolve().then(()=>navigator.clipboard.writeText(txt)).then(()=>toast("Popis kopiran"),()=>toast("Kopiranje nije uspjelo"))}
 });
 document.addEventListener("change",e=>{const d=e.target.dataset;if(d.ck){S.checked[d.ck]=e.target.checked;renderReceipt();save()}});
@@ -258,7 +322,7 @@ $("#custom").addEventListener("input",e=>{const v=parseFloat(e.target.value);if(
 renderControls();
 loadPrices.finally(()=>{
   if(S.live&&!LIVE)S.live=false;
-  if(!Object.keys(S.cart).length){if(LIVE)apply();else{plan();renderResults()}}
+  if(!Object.keys(S.cart).length)apply();
   else renderResults();
 });
 </script>
