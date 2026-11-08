@@ -75,16 +75,20 @@ function niceName(s) {
 // "0.50 kg" + "ko" -> "0,5 kg"; komadi se ne prikazuju
 function niceQty(q, u) {
   q = String(q || "").trim(); u = String(u || "").trim().toLowerCase();
-  const m = q.match(/^([\d.,]+)\s*([a-zA-Z]*)$/);
-  if (!m) return q;
-  const n = parseFloat(m[1].replace(",", ".")); let unit = (m[2] || u).toLowerCase();
-  if (!isFinite(n) || !n || ["ko", "kom", "kos", "pak"].includes(unit) || !unit) return "";
+  // Lidl piše npr. "0,5 500g" ili "150g,180g": uzmi zadnju vrijednost s jedinicom
+  const tokens = [...q.matchAll(/(\d+(?:[.,]\d+)?)\s*(kg|g|ml|l)(?![a-z])/gi)];
+  let n, unit;
+  if (tokens.length) { const t = tokens[tokens.length - 1]; n = parseFloat(t[1].replace(",", ".")); unit = t[2].toLowerCase(); }
+  else {
+    const m = q.match(/^([\d.,]+)\s*([a-zA-Z]*)$/);
+    if (!m) return "";
+    n = parseFloat(m[1].replace(",", ".")); unit = (m[2] || u).toLowerCase();
+  }
+  if (!isFinite(n) || !n || !["kg", "g", "ml", "l"].includes(unit)) return "";
   if (unit === "kg" && n < 1) return Math.round(n * 1000) + " g";
   if (unit === "l" && n < 1) return Math.round(n * 1000) + " ml";
   return String(+n.toFixed(2)).replace(".", ",") + " " + (unit === "l" ? "L" : unit);
 }
-// hrana za kućne ljubimce (npr. "MM TUNA" za mačke) nikad ne ulazi u popis
-const PET = /(^|[^a-z])(mm|gf|felix|gourmet|lechat|whiskas|sheba|purina|friskies|kitekat|pedigree|tomi|cesar|kitten|cat|dog|macj[a-z]*|psec[a-z]*|za pse|za mace|hrana za)([^a-z]|$)/;
 const terms = [];
 for (const cat in P) for (const it of P[cat]) {
   terms.push({
