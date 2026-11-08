@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Košarica do budžeta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: postavke -> traka budžeta -> mreža proizvoda; popis za kupnju kao račun */
+:root{
+  --bg:#EDF1EC; --surface:#FFFFFF; --sunk:#E2E8E1; --ink:#17302A; --muted:#5C6F68; --line:#CCD6CE;
+  --green:#1E7A4C; --green-ink:#FFFFFF; --yellow:#F2B705; --yellow-soft:#FCEFC2; --danger:#C2372B;
+  --f-display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"Figtree",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#101A17; --surface:#18251F; --sunk:#0B1310; --ink:#E4EEE8; --muted:#94A89F; --line:#2B3B34;
+  --green:#3FB57A; --green-ink:#08130E; --yellow:#F5C431; --yellow-soft:#3A3214; --danger:#F07468; color-scheme:dark}}
+*{box-sizing:border-box}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45}
+img{max-width:100%}
+[hidden]{display:none!important}
+.wrap{max-width:980px;margin:0 auto;padding-block:20px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:20px}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(28px,6vw,40px);line-height:1;margin:0;letter-spacing:-.02em}
+h1 span{background:var(--yellow);color:#17302A;padding:0 .15em;border-radius:4px}
+.sub{color:var(--muted);margin:6px 0 0;max-width:60ch}
+.tabs{display:flex;background:var(--sunk);border-radius:999px;padding:4px;gap:4px}
+.tabs button{border:0;background:transparent;color:var(--muted);font:600 14px var(--f-body);padding:8px 14px;border-radius:999px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.badge{display:inline-block;min-width:20px;padding:0 6px;border-radius:999px;background:var(--green);color:var(--green-ink);font-size:12px;margin-left:4px}
+.status{display:flex;gap:10px;align-items:center;font-size:13px;padding:10px 14px;border-radius:10px;background:var(--surface);border:1px solid var(--line)}
+.status .pill{font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:var(--sunk)}
+.status.live .pill{background:var(--green);color:var(--green-ink)}
+.status.est .pill{background:var(--yellow);color:#17302A}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:grid;gap:18px}
+.step{display:grid;gap:8px}
+.label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:600 14px var(--f-body);padding:8px 14px;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.chip:hover{border-color:var(--muted)}
+.chip[aria-pressed="true"]{border-color:var(--green);background:var(--green);color:var(--green-ink)}
+:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+.dot{width:10px;height:10px;border-radius:50%;flex:none;box-shadow:0 0 0 2px var(--surface)}
+.stepper{display:flex;align-items:center;gap:6px}
+.stepper button{width:40px;height:40px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:700 20px var(--f-body);cursor:pointer}
+.stepper output{font-family:var(--f-display);font-weight:800;font-size:28px;min-width:44px;text-align:center}
+.stepper small{color:var(--muted)}
+.custom{display:flex;align-items:center;gap:6px}
+.custom input{width:90px;padding:8px 10px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:600 14px var(--f-mono)}
+.btn{border:0;background:var(--green);color:var(--green-ink);font:700 16px var(--f-body);padding:14px 20px;border-radius:12px;cursor:pointer;justify-self:start}
+.btn[disabled]{opacity:.6;cursor:wait}
+.btn.ghost{background:var(--sunk);color:var(--ink);font-size:14px;padding:10px 14px}
+.meter{display:grid;gap:8px}
+.meter-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.total{font-family:var(--f-mono);font-weight:600;font-size:26px}
+.total small{font-size:15px;color:var(--muted)}
+.bar{height:12px;border-radius:999px;background:var(--sunk);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--green);border-radius:999px;transition:width .3s}
+.over .bar i{background:var(--danger)} .over .total{color:var(--danger)}
+.note{font-size:13px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;grid-template-columns:60px 1fr;gap:10px;align-items:center}
+.thumb{width:60px;height:60px;border-radius:10px;display:grid;place-items:center;font-size:30px;background:var(--sunk);overflow:hidden}
+.thumb img{width:100%;height:100%;object-fit:contain;background:#fff}
+.card .nm{font-weight:600;line-height:1.2;overflow-wrap:anywhere}
+.card .meta{font-size:12px;color:var(--muted)}
+.card .row{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.price{font-family:var(--f-mono);font-weight:600;font-variant-numeric:tabular-nums}
+.qty{display:flex;align-items:center;gap:4px}
+.qty button{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:700 16px var(--f-body);cursor:pointer}
+.qty span{min-width:22px;text-align:center;font-family:var(--f-mono)}
+.swap{border:0;background:none;color:var(--green);font:600 12px var(--f-body);cursor:pointer;padding:0}
+.card.alt{border-style:dashed}
+.card.alt .add{border:0;background:var(--yellow-soft);color:var(--ink);font:600 13px var(--f-body);padding:6px 10px;border-radius:8px;cursor:pointer}
+h2{font-family:var(--f-display);font-weight:600;font-size:20px;margin:0}
+.section{display:grid;gap:10px}
+.empty{padding:28px;text-align:center;color:var(--muted);border:1.5px dashed var(--line);border-radius:14px;grid-column:1/-1}
+.receipt{background:var(--surface);border:1px solid var(--line);border-radius:4px;max-width:480px;width:100%;margin:0 auto;padding:22px 18px;font-family:var(--f-mono);font-size:14px;display:grid;gap:12px}
+.receipt h3{margin:0;text-align:center;font-size:15px;letter-spacing:.1em;text-transform:uppercase}
+.receipt .hd{text-align:center;color:var(--muted);font-size:12px}
+.receipt hr{border:0;border-top:1.5px dashed var(--line);margin:0;width:100%}
+.rgroup{display:grid;gap:4px}
+.rgroup .gname{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.ritem{display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;cursor:pointer;padding:4px 0}
+.ritem input{width:18px;height:18px;accent-color:var(--green)}
+.ritem.done .t{text-decoration:line-through;color:var(--muted)}
+.rsum{display:flex;justify-content:space-between;font-weight:600;font-size:16px}
+.ractions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.keypanel summary{cursor:pointer;font-weight:700}
+.keypanel[open] summary{margin-bottom:4px}
+.keypanel input{width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:500 14px var(--f-mono)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;font-size:14px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Košarica <span>do budžeta</span></h1>
+      <p class="sub">Odaberi trgovinu, broj osoba, budžet i vrstu hrane. Složit ćemo popis koji stane u iznos.</p>
+    </div>
+    <div class="tabs" role="tablist">
+      <button id="tab-plan" role="tab" aria-selected="true">Planiranje</button>
+      <button id="tab-list" role="tab" aria-selected="false">Popis <span class="badge" id="badge">0</span></button>
+    </div>
+  </header>
+  <div class="status" id="status"><span class="pill">…</span><span>Provjeravam vezu s cijene.dev</span></div>
+  <details class="panel keypanel" id="keypanel">
+    <summary>Postavke cijena (API ključ)</summary>
+    <div class="step"><label class="label" for="key">cijene.dev API ključ</label>
+      <input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="Zalijepi ključ s cijene.dev">
+      <div class="note">Ključ se sprema samo u ovom pregledniku i šalje se samo na adresu ispod.</div></div>
+    <div class="step"><label class="label" for="apiurl">Adresa API-ja ili proxyja</label>
+      <input id="apiurl" type="url" spellcheck="false"></div>
+    <div class="chips"><button class="btn" id="savekey">Spremi i učitaj cijene</button><button class="btn ghost" id="forgetkey">Zaboravi ključ</button></div>
+  </details>
+
+  <main id="view-plan" style="display:grid;gap:20px">
+    <section class="panel" aria-label="Postavke">
+      <div class="step"><div class="label">Trgovina</div><div class="chips" id="stores"></div></div>
+      <div class="step"><div class="label">Broj osoba</div>
+        <div class="stepper"><button id="pminus" aria-label="Manje osoba">−</button><output id="persons">2</output><button id="pplus" aria-label="Više osoba">+</button><small id="psub">osobe</small></div>
+      </div>
+      <div class="step"><div class="label">Budžet</div>
+        <div class="chips" id="budgets"></div>
+        <label class="custom note" for="custom">ili upiši: <input id="custom" type="number" min="5" max="500" step="1" inputmode="decimal" placeholder="npr. 40"> €</label>
+      </div>
+      <div class="step"><div class="label">Kategorije (može više)</div><div class="chips" id="cats"></div></div>
+      <button class="btn" id="apply">Složi popis</button>
+    </section>
+    <section class="panel meter" id="meter" aria-live="polite"></section>
+    <section class="section"><h2>U košarici</h2><div class="grid" id="picked"></div></section>
+    <section class="section" id="altsec"><h2>Možeš još dodati</h2><div class="grid" id="alts"></div></section>
+  </main>
+
+  <main id="view-list" hidden><div class="receipt" id="receipt"></div></main>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const STORES=[
+ {id:"konzum",name:"Konzum",color:"#D9232E",k:1.02},{id:"lidl",name:"Lidl",color:"#1F5FB4",k:0.94},
+ {id:"kaufland",name:"Kaufland",color:"#B3122A",k:0.97},{id:"spar",name:"Spar",color:"#13834A",k:1.00},
+ {id:"plodine",name:"Plodine",color:"#E8862A",k:0.98},{id:"studenac",name:"Studenac",color:"#2A7FC9",k:1.04},
+ {id:"tommy",name:"Tommy",color:"#7B4FA8",k:1.06},{id:"eurospin",name:"Eurospin",color:"#1B4C9C",k:0.95}];
+const CATS=[
+ {id:"osnovno",name:"Osnovne namirnice",tile:"#F3E7C4"},{id:"meso",name:"Meso",tile:"#F6D3CF"},
+ {id:"riba",name:"Riba",tile:"#CFE3F3"},{id:"zdravo",name:"Zdrava prehrana",tile:"#D5EED9"},
+ {id:"vege",name:"Vege",tile:"#E1EDC9"},{id:"junk",name:"Junk food",tile:"#F5DDC0"}];
+// [id, prikazni naziv, pakiranje, okvirna cijena €, ikona, koliko osoba pokriva 1 kom, pojam za pretragu, mora sadržavati, ne smije sadržavati]
+const P={
+ osnovno:[["kruh","Kruh bijeli","500 g",1.29,"🍞",2,"kruh bijeli","kruh","mrvic|tost"],["jaja","Jaja","10 kom",2.79,"🥚",3,"jaja 10","jaj","cokol|kinder|tjesten"],["mlijeko","Mlijeko","1 L",1.19,"🥛",1,"svježe mlijeko","mlijek","cokol|kakao|kokos|zob|soj|badem|kava|jogurt|kondenz|prah"],["tjest","Tjestenina špageti","500 g",1.09,"🍝",3,"špageti","spaget","umak"],["riza","Riža","1 kg",1.99,"🍚",4,"riža","riz","mlijec|napitak|kreker|ljuspic"],["pasirana","Pasirana rajčica","500 g",0.99,"🥫",3,"pasirana rajčica","pasir",""],["krumpir","Krumpir","2 kg",1.99,"🥔",3,"krumpir","krumpir","cips|pomfrit|pire|smrz"],["luk","Crveni luk","1 kg",1.29,"🧅",4,"luk crveni","luk","cips|prah|granul"],["ulje","Suncokretovo ulje","1 L",1.99,"🫗",6,"suncokretovo ulje","suncokret","sjemenk"],["sir","Sir Gauda","200 g",2.29,"🧀",2,"gauda","gauda",""],["maslac","Maslac","250 g",2.89,"🧈",4,"maslac","maslac","kikiriki|keks|kroasan"]],
+ meso:[["piletina","Pileća prsa","500 g",4.99,"🍗",2,"pileća prsa","prsa","pure|pureć|naresk|dimljen"],["mljeveno","Mljeveno meso","500 g",4.49,"🥩",2,"mljeveno meso","mljeven","kava|papr"],["bataci","Pileći bataci","1 kg",4.29,"🍗",3,"pileći bataci","batak",""],["hrenovke","Hrenovke","400 g",2.49,"🌭",2,"hrenovke","hrenovk",""],["sunka","Šunka narezak","200 g",2.29,"🥓",2,"šunka narezak","sunk","pizza|sendvic"],["vrat","Svinjski vrat","1 kg",7.99,"🥩",3,"svinjski vrat","vrat","dimljen"],["kobasice","Kobasice","500 g",3.99,"🌭",2,"kobasice","kobas",""],["junetina","Junetina","500 g",7.49,"🥩",2,"junetina","junet|junec","juha|pasteta"]],
+ riba:[["tuna","Tuna u komadima","3×80 g",3.99,"🥫",2,"tuna","tuna","salat|pasteta|namaz"],["oslic","Oslić file","400 g",4.49,"🐟",2,"oslić","oslic",""],["srdele","Srdele","",4.99,"🐟",3,"srdele","srdel","pasteta"],["stapici","Riblji štapići","300 g",2.99,"🐠",2,"riblji štapići","stapic",""],["skusa","Skuša","125 g",1.39,"🥫",1,"skuša","skus","pasteta"],["losos","Losos","250 g",5.99,"🍣",2,"losos","losos","namaz|pasteta"],["lignje","Lignje","500 g",6.49,"🦑",2,"lignje","lignj",""],["kozice","Kozice","400 g",5.49,"🦐",2,"kozice","kozic|skamp",""]],
+ zdravo:[["zob","Zobene pahuljice","500 g",1.29,"🥣",3,"zobene pahuljice","zobene","cokol|keks|cokolad"],["jogurt","Grčki jogurt","400 g",1.89,"🍶",2,"grčki jogurt","grck",""],["banane","Banane","1 kg",1.49,"🍌",2,"banane","banan","cips|jogurt|sok|cokol"],["jabuke","Jabuke","1 kg",1.39,"🍎",2,"jabuke","jabuk","sok|ocat|cips|pita|strudl"],["brokula","Brokula","500 g",1.79,"🥦",2,"brokula","brokul",""],["mrkva","Mrkva","1 kg",0.99,"🥕",3,"mrkva","mrkv","sok"],["integralni","Integralni kruh","500 g",1.99,"🍞",2,"integralni kruh","integral",""],["svjezisir","Svježi sir","250 g",1.49,"🧀",2,"svježi sir","svjez",""],["spinat","Špinat","",1.99,"🥬",2,"špinat","spinat","tjesten|pita"],["avokado","Avokado","",2.49,"🥑",2,"avokado","avokad","ulje"],["orasi","Orašasti plodovi","200 g",3.49,"🥜",3,"mješavina orašastih","orasast|orah|badem","cokol"]],
+ vege:[["slanutak","Slanutak","400 g",1.19,"🫘",2,"slanutak","slanut",""],["leca","Leća","500 g",1.99,"🫘",4,"leća","lec","kontakt"],["tofu","Tofu","200 g",2.29,"⬜",2,"tofu","tofu",""],["rajcice","Rajčice","1 kg",2.29,"🍅",3,"rajčica","rajc","pasir|ketchup|koncentrat|sok|umak|sus"],["paprika","Paprika","500 g",1.99,"🫑",2,"paprika","papri","mljeven|cips|ajvar|kobas"],["tikvice","Tikvice","1 kg",1.99,"🥒",3,"tikvice","tikvic",""],["sampinjoni","Šampinjoni","400 g",1.89,"🍄",2,"šampinjoni","sampinj","juha|umak"],["hummus","Humus","200 g",1.99,"🧆",2,"humus","humus|hummus",""],["grah","Grah","400 g",0.99,"🫘",2,"grah","grah","juha|varivo"],["zobeno","Zobeni napitak","1 L",1.79,"🥛",2,"zobeni napitak","zob","pahulj"]],
+ junk:[["cips","Čips","150 g",1.99,"🍟",2,"čips","cips",""],["pizza","Smrznuta pizza","350 g",2.99,"🍕",1,"pizza","pizz","umak|tijesto|brasno|zacin"],["cokolada","Mliječna čokolada","100 g",1.49,"🍫",2,"mliječna čokolada","cokolad","napitak|mlijeko|keks|sladoled|liker"],["smoki","Smoki","150 g",1.29,"🥜",2,"smoki","smoki",""],["keksi","Keksi","300 g",1.79,"🍪",3,"keksi","keks",""],["kola","Coca-Cola","2 L",2.19,"🥤",3,"coca cola","cola",""],["sladoled","Sladoled","900 ml",3.49,"🍦",4,"sladoled","sladoled","kornet|posip"],["kokice","Kokice","",1.99,"🍿",3,"kokice","kokic",""],["bomboni","Gumeni bomboni","200 g",1.39,"🍬",3,"gumeni bomboni","bombon",""],["pivo","Pivo","0,5 L",1.19,"🍺",1,"pivo","pivo","bezalkohol"]]
+};
+const BUDGETS=[10,20,30,50,100];
+const $=s=>document.querySelector(s);
+const eur=n=>n.toFixed(2).replace(".",",")+" €";
+const strip=s=>s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/đ/g,"d");
+const plural=n=>n===1?"osoba":n%10>=2&&n%10<=4&&(n<12||n>14)?"osobe":"osoba";
+function hash(s){let h=7;for(const c of s)h=(h*31+c.charCodeAt(0))>>>0;return h}
+const byId={};for(const c in P)for(const it of P[c])byId[it[0]]={it,cat:c};
+
+let LIVE=false;           // radi li veza s cijene.dev
+const DATA={};            // DATA[store][id] = [{name,brand,quantity,unit,price,ean,date}] ili [] ako nema
+let S={store:"konzum",persons:2,budget:30,cats:["osnovno","meso","zdravo"],cart:{},pick:{},checked:{},live:false};
+try{const s=JSON.parse(localStorage.getItem("kosarica-live")||"null");if(s&&s.store)S=Object.assign(S,s)}catch(e){}
+const save=()=>{try{localStorage.setItem("kosarica-live",JSON.stringify(S))}catch(e){}};
+
+function estPrice(store,it){const st=STORES.find(s=>s.id===store);const noise=((hash(store+it[0])%13)-6)/100;let p=it[3]*st.k*(1+noise);return Math.max(.39,Math.round(p*10)/10-0.01)}
+function cands(id){return S.live?(DATA[S.store]?.[id]||[]):[]}
+function chosen(id){const c=cands(id);return c.length?c[(S.pick[id]||0)%c.length]:null}
+function priceOf(id){const c=chosen(id);return c?c.price:estPrice(S.store,byId[id].it)}
+function available(id){return !S.live||cands(id).length>0}
+const totalOf=()=>Object.entries(S.cart).reduce((a,[id,q])=>a+priceOf(id)*q,0);
+
+// ---- veza s cijene.dev (izravno iz preglednika ili preko vlastitog proxyja) ----
+const DEFAULT_API="https://api.cijene.dev/v1";
+const CFG={key:"",api:DEFAULT_API};
+try{const c=JSON.parse(localStorage.getItem("kosarica-cfg")||"null");if(c)Object.assign(CFG,c)}catch(e){}
+const saveCfg=()=>{try{localStorage.setItem("kosarica-cfg",JSON.stringify(CFG))}catch(e){}};
+let LAST_ERR="";
+const num=x=>{const n=parseFloat(String(x??"").replace(",","."));return isFinite(n)&&n>0?n:null};
+function normalize(raw,chain){
+  const list=Array.isArray(raw)?raw:raw.products||raw.results||raw.items||[];const out=[];
+  for(const p of list)for(const e of (p.chains||p.prices||[p])){
+    const c=String(e.chain||e.chain_code||e.code||p.chain||"").toLowerCase();
+    if(chain&&c&&c!==chain)continue;
+    const price=num(e.min_price)??num(e.price)??num(e.avg_price)??num(e.special_price)??num(e.regular_price);
+    if(!price)continue;
+    out.push({ean:p.ean||e.ean||null,name:p.name||e.name||"",brand:p.brand||e.brand||"",quantity:p.quantity||e.quantity||"",unit:p.unit||e.unit||"",price,date:e.price_date||e.date||null});
+  }return out}
+const searchCache={};
+async function apiSearch(q,chain){
+  const k=chain+":"+q;if(searchCache[k])return searchCache[k];
+  const qs=new URLSearchParams({q,limit:"50",chains:chain});
+  const headers={Accept:"application/json"};if(CFG.key)headers.Authorization="Bearer "+CFG.key;
+  let r;
+  try{r=await fetch(CFG.api.replace(/\/$/,"")+"/products/?"+qs,{headers})}
+  catch(e){LAST_ERR="cors";throw new Error("Preglednik je blokirao poziv prema cijene.dev. Treba proxy (vidi README).")}
+  if(r.status===401||r.status===403){LAST_ERR="key";throw new Error("API ključ nije prihvaćen. Provjeri ga na cijene.dev.")}
+  if(!r.ok){LAST_ERR="http";throw new Error("cijene.dev je vratio grešku "+r.status)}
+  LAST_ERR="";return searchCache[k]=normalize(await r.json(),chain);
+}
+async function fetchPrices(ids){
+  const store=S.store;DATA[store]=DATA[store]||{};
+  const todo=ids.filter(id=>!(id in DATA[store]));let i=0,failed=0;
+  async function worker(){while(i<todo.length){const id=todo[i++];const it=byId[id].it;
+    try{const items=await apiSearch(it[6],store);
+      const must=new RegExp(it[7]),ex=it[8]?new RegExp(it[8]):null;
+      DATA[store][id]=items.filter(x=>{const n=strip(x.name+" "+x.brand);return must.test(n)&&!(ex&&ex.test(n))})
+        .sort((a,b)=>a.price-b.price).slice(0,8);
+    }catch(e){failed++;if(failed===1)toast(e.message)}}}
+  await Promise.all([worker(),worker(),worker(),worker()]);
+  return failed;
+}
+
+function plan(){
+  const lists=S.cats.map(c=>P[c].filter(it=>available(it[0])).map(it=>({id:it[0],base:Math.ceil(S.persons/it[5])})));
+  const cart={};let total=0;const maxLen=Math.max(0,...lists.map(l=>l.length));
+  for(let i=0;i<maxLen;i++)for(const l of lists){const x=l[i];if(!x)continue;const c=priceOf(x.id)*x.base;if(total+c<=S.budget+1e-9){cart[x.id]=x.base;total+=c}}
+  for(const l of lists)for(const x of l){if(cart[x.id])continue;const c=priceOf(x.id);if(total+c<=S.budget+1e-9){cart[x.id]=1;total+=c}}
+  S.cart=cart;S.checked={};
+}
+
+function setStatus(){const el=$("#status");el.className="status "+(S.live?"live":"est");
+  const dates=Object.values(DATA[S.store]||{}).flat().map(x=>x.date).filter(Boolean).sort();const d=dates[dates.length-1];
+  el.innerHTML=S.live?`<span class="pill">Stvarne cijene</span><span>Podaci s cijene.dev${d?`, cjenik od ${new Date(d).toLocaleDateString("hr-HR")}`:""}. Cijene su najniže u lancu i mogu se razlikovati po poslovnici.</span>`
+    :`<span class="pill">Okvirne cijene</span><span>${LAST_ERR==="cors"?"Preglednik je blokirao poziv prema cijene.dev, pa prikazujem procjene. Rješenje je proxy (upute u README-u).":LAST_ERR==="key"?"API ključ nije prihvaćen, pa prikazujem procjene.":CFG.key?"Stvarne cijene se nisu učitale, pa prikazujem procjene.":"Prikazujem procjene. Upiši svoj cijene.dev ključ ispod za stvarne cijene."}</span>`}
+
+function renderControls(){
+  $("#stores").innerHTML=STORES.map(s=>`<button class="chip" data-s="${s.id}" aria-pressed="${S.store===s.id}"><span class="dot" style="background:${s.color}"></span>${s.name}</button>`).join("");
+  $("#persons").textContent=S.persons;$("#psub").textContent=plural(S.persons);
+  $("#budgets").innerHTML=BUDGETS.map(b=>`<button class="chip" data-b="${b}" aria-pressed="${S.budget===b}">${b} €</button>`).join("");
+  $("#custom").value=BUDGETS.includes(S.budget)?"":S.budget;
+  $("#cats").innerHTML=CATS.map(c=>`<button class="chip" data-c="${c.id}" aria-pressed="${S.cats.includes(c.id)}">${c.name}</button>`).join("");
+}
+function info(id){const {it,cat}=byId[id];const c=chosen(id);
+  return {cat,icon:it[4],name:c?c.name:it[1],sub:c?[c.brand,[c.quantity,c.unit].filter(Boolean).join(" ")].filter(Boolean).join(" · "):it[2],ean:c?.ean,n:cands(id).length}}
+function card(id,q,alt){const x=info(id),p=priceOf(id);const tile=CATS.find(c=>c.id===x.cat).tile;
+  return `<div class="card${alt?" alt":""}"><div class="thumb" style="background:${tile}" ${x.ean?`data-ean="${x.ean}"`:""}>${x.icon}</div>
+  <div style="min-width:0"><div class="nm">${x.name}</div><div class="meta">${x.sub?x.sub+" · ":""}<span class="price">${eur(p)}</span></div>
+  ${x.n>1&&!alt?`<button class="swap" data-swap="${id}">Druga opcija (${x.n})</button>`:""}</div>
+  <div class="row">${alt?`<span class="meta">${CATS.find(c=>c.id===x.cat).name}</span><button class="add" data-add="${id}">+ Dodaj</button>`:
+  `<div class="qty"><button data-dec="${id}" aria-label="Manje">−</button><span>${q}</span><button data-inc="${id}" aria-label="Više">+</button></div><span class="price">${eur(p*q)}</span>`}</div></div>`}
+const imgCache={};
+function loadImages(){document.querySelectorAll(".thumb[data-ean]").forEach(async el=>{const ean=el.dataset.ean;
+  if(!(ean in imgCache)){imgCache[ean]=fetch(`https://world.openfoodfacts.org/api/v2/product/${ean}.json?fields=image_front_small_url,image_small_url`).then(r=>r.ok?r.json():null).then(j=>j?.product?.image_front_small_url||j?.product?.image_small_url||null).catch(()=>null)}
+  const url=await imgCache[ean];if(url&&el.isConnected&&el.dataset.ean===ean){const im=new Image();im.alt="";im.src=url;im.onload=()=>{el.textContent="";el.appendChild(im)}}})}
+function renderResults(){
+  const t=totalOf(),pct=Math.min(100,S.budget?t/S.budget*100:0),over=t>S.budget+1e-9,st=STORES.find(s=>s.id===S.store);
+  const m=$("#meter");m.classList.toggle("over",over);
+  m.innerHTML=`<div class="meter-top"><div><div class="label">${st.name} · ${S.persons} ${plural(S.persons)}</div><div class="total">${eur(t)} <small>/ ${eur(S.budget)}</small></div></div>
+  <div class="note">${over?`Prešao si budžet za <b>${eur(t-S.budget)}</b>. Makni nešto.`:`Ostaje ti <b>${eur(S.budget-t)}</b>`}</div></div><div class="bar"><i style="width:${pct}%"></i></div>`;
+  const ids=Object.keys(S.cart);
+  $("#picked").innerHTML=ids.length?ids.map(id=>card(id,S.cart[id])).join(""):`<div class="empty">Košarica je prazna. Odaberi postavke i stisni <b>Složi popis</b>.</div>`;
+  const alts=S.cats.flatMap(c=>P[c].map(it=>it[0])).filter(id=>!S.cart[id]&&available(id));
+  $("#altsec").hidden=!alts.length;$("#alts").innerHTML=alts.map(id=>card(id,0,true)).join("");
+  $("#badge").textContent=ids.length;renderReceipt();setStatus();loadImages();save();
+}
+function renderReceipt(){
+  const ids=Object.keys(S.cart),st=STORES.find(s=>s.id===S.store);
+  if(!ids.length){$("#receipt").innerHTML=`<h3>Popis za kupnju</h3><div class="empty">Još nema ničega. Složi popis na kartici Planiranje.</div>`;return}
+  const left=ids.filter(id=>!S.checked[id]).length;
+  $("#receipt").innerHTML=`<h3>${st.name} · popis</h3><div class="hd">${S.persons} ${plural(S.persons)} · budžet ${eur(S.budget)} · ${left} od ${ids.length} preostalo</div><hr>`+
+   CATS.filter(g=>ids.some(id=>byId[id].cat===g.id)).map(g=>`<div class="rgroup"><div class="gname">${g.name}</div>${ids.filter(id=>byId[id].cat===g.id).map(id=>{const x=info(id),q=S.cart[id];
+    return `<label class="ritem${S.checked[id]?" done":""}" for="ck-${id}"><input type="checkbox" id="ck-${id}" data-ck="${id}" ${S.checked[id]?"checked":""}><span class="t">${q}× ${x.name} <span style="color:var(--muted)">${x.sub}</span></span><span>${eur(priceOf(id)*q)}</span></label>`}).join("")}</div>`).join("")+
+   `<hr><div class="rsum"><span>UKUPNO</span><span>${eur(totalOf())}</span></div><div class="ractions"><button class="btn ghost" id="copy">Kopiraj popis</button><button class="btn ghost" id="reset">Odznači sve</button></div>`;
+}
+function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2200)}
+function tab(which){const l=which==="list";$("#view-plan").hidden=l;$("#view-list").hidden=!l;$("#tab-plan").setAttribute("aria-selected",!l);$("#tab-list").setAttribute("aria-selected",l)}
+
+async function apply(){
+  if(!S.cats.length){toast("Odaberi barem jednu kategoriju");return}
+  S.live=LIVE;S.pick={};
+  if(LIVE){const b=$("#apply");b.disabled=true;b.textContent="Dohvaćam cijene…";
+    const ids=S.cats.flatMap(c=>P[c].map(it=>it[0]));const failed=await fetchPrices(ids);
+    b.disabled=false;b.textContent="Složi popis";
+    if(failed===ids.length){S.live=false;toast("Cijene se nisu učitale, prikazujem procjene")}}
+  plan();renderResults();if(Object.keys(S.cart).length)toast("Popis složen");else toast("Ništa ne stane u taj budžet");
+  $("#meter").scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+document.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const d=b.dataset;
+  if(d.s){S.store=d.s;renderControls()}
+  else if(d.b){S.budget=+d.b;renderControls()}
+  else if(d.c){S.cats=S.cats.includes(d.c)?S.cats.filter(x=>x!==d.c):[...S.cats,d.c];renderControls()}
+  else if(d.inc){S.cart[d.inc]++;renderResults()}
+  else if(d.dec){if(--S.cart[d.dec]<=0)delete S.cart[d.dec];renderResults()}
+  else if(d.add){S.cart[d.add]=1;renderResults()}
+  else if(d.swap){S.pick[d.swap]=((S.pick[d.swap]||0)+1)%cands(d.swap).length;renderResults()}
+  else if(b.id==="pplus"&&S.persons<8){S.persons++;renderControls()}
+  else if(b.id==="pminus"&&S.persons>1){S.persons--;renderControls()}
+  else if(b.id==="apply")apply();
+  else if(b.id==="tab-plan")tab("plan");else if(b.id==="tab-list")tab("list");
+  else if(b.id==="reset"){S.checked={};renderReceipt();save()}
+  else if(b.id==="copy"){const st=STORES.find(s=>s.id===S.store);
+    const txt=`Popis – ${st.name}\n`+Object.entries(S.cart).map(([id,q])=>{const x=info(id);return `☐ ${q}× ${x.name}${x.sub?" ("+x.sub+")":""} – ${eur(priceOf(id)*q)}`}).join("\n")+`\nUkupno: ${eur(totalOf())}`;
+    Promise.resolve().then(()=>navigator.clipboard.writeText(txt)).then(()=>toast("Popis kopiran"),()=>toast("Kopiranje nije uspjelo"))}
+});
+document.addEventListener("change",e=>{const d=e.target.dataset;if(d.ck){S.checked[d.ck]=e.target.checked;renderReceipt();save()}});
+$("#custom").addEventListener("input",e=>{const v=parseFloat(e.target.value);if(v>=5){S.budget=v;document.querySelectorAll("[data-b]").forEach(x=>x.setAttribute("aria-pressed","false"))}});
+
+renderControls();
+function boot(){
+  LIVE=!!CFG.key||CFG.api!==DEFAULT_API;
+  $("#key").value=CFG.key;$("#apiurl").value=CFG.api;
+  if(!LIVE)$("#keypanel").open=true;
+  if(S.live&&!LIVE)S.live=false;
+  if(!Object.keys(S.cart).length&&!LIVE)plan();
+  renderResults();
+  if(LIVE&&!Object.keys(S.cart).length)apply();
+  else if(S.live)fetchPrices(Object.keys(S.cart)).then(renderResults);
+}
+$("#savekey").addEventListener("click",()=>{CFG.key=$("#key").value.trim();CFG.api=($("#apiurl").value.trim()||DEFAULT_API);saveCfg();
+  for(const k in DATA)delete DATA[k];for(const k in searchCache)delete searchCache[k];
+  LIVE=!!CFG.key||CFG.api!==DEFAULT_API;$("#keypanel").open=false;apply()});
+$("#forgetkey").addEventListener("click",()=>{CFG.key="";CFG.api=DEFAULT_API;try{localStorage.removeItem("kosarica-cfg")}catch(e){}
+  $("#key").value="";$("#apiurl").value=DEFAULT_API;LIVE=false;S.live=false;plan();renderResults();toast("Ključ obrisan")});
+boot();
+</script>
+</body>
+</html>
