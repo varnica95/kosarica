@@ -233,7 +233,7 @@ function renderRecipes(){
 }
 function setStatus(){const el=$("#status");el.className="status "+(S.live?"live":"est");
   const d=PRICES&&PRICES.date;const has=PRICES&&PRICES.chains[S.store]&&Object.keys(PRICES.chains[S.store]).length;
-  el.innerHTML=S.live&&has?`<span class="pill">Stvarne cijene</span><span>Cjenik ${STORES.find(s=>s.id===S.store).name}${d?` od ${new Date(d).toLocaleDateString("hr-HR")}`:""}, izvor cijene.dev. Prikazana je najniža cijena u lancu, u tvojoj poslovnici može biti drukčija.</span>`
+  el.innerHTML=S.live&&has?`<span class="pill">Stvarne cijene</span><span>Cjenik ${STORES.find(s=>s.id===S.store).name}${d?` od ${new Date(d).toLocaleDateString("hr-HR")}`:""}, izvor cijene.dev. Prikazana je uobičajena cijena u lancu, u tvojoj poslovnici može biti malo drukčija.</span>`
     :S.live?`<span class="pill">Nema podataka</span><span>Za ${STORES.find(s=>s.id===S.store).name} danas nema cjenika. Odaberi drugu trgovinu.</span>`
     :`<span class="pill">Okvirne cijene</span><span>Dnevni cjenik još nije učitan, pa prikazujem procjene.</span>`}
 

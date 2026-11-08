@@ -57,9 +57,35 @@ function findChainDir(chain) {
   return null;
 }
 
+function median(a) { const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }
+// "KRUH POLUBIJELI 500g" -> "Kruh polubijeli 500g"
+function niceName(s) {
+  s = String(s || "").trim().replace(/\s+/g, " ");
+  const letters = s.replace(/[^A-Za-zČĆŽŠĐčćžšđ]/g, "");
+  if (letters && letters === letters.toUpperCase()) s = s.toLowerCase().replace(/^./, (c) => c.toUpperCase());
+  return s;
+}
+// "0.50 kg" + "ko" -> "0,5 kg"; komadi se ne prikazuju
+function niceQty(q, u) {
+  q = String(q || "").trim(); u = String(u || "").trim().toLowerCase();
+  const m = q.match(/^([\d.,]+)\s*([a-zA-Z]*)$/);
+  if (!m) return q;
+  const n = parseFloat(m[1].replace(",", ".")); let unit = (m[2] || u).toLowerCase();
+  if (!isFinite(n) || !n || ["ko", "kom", "kos", "pak"].includes(unit) || !unit) return "";
+  if (unit === "kg" && n < 1) return Math.round(n * 1000) + " g";
+  if (unit === "l" && n < 1) return Math.round(n * 1000) + " ml";
+  return String(+n.toFixed(2)).replace(".", ",") + " " + (unit === "l" ? "L" : unit);
+}
+// hrana za kućne ljubimce (npr. "MM TUNA" za mačke) nikad ne ulazi u popis
+const PET = /(^|[^a-z])(mm|gf|felix|gourmet|lechat|whiskas|sheba|purina|friskies|kitekat|pedigree|tomi|cesar|kitten|cat|dog|macj[a-z]*|psec[a-z]*|za pse|za mace|hrana za)([^a-z]|$)/;
 const terms = [];
 for (const cat in P) for (const it of P[cat]) {
-  terms.push({ id: it[0], must: new RegExp("(^|[^a-z])(" + it[7] + ")"), ex: it[8] ? new RegExp(it[8]) : null });
+  terms.push({
+    id: it[0], est: it[3],
+    start: new RegExp("^(" + it[7] + ")"),            // naziv počinje traženom riječju (prednost)
+    must: new RegExp("(^|[^a-z])(" + it[7] + ")"),    // ili je sadrži kao zasebnu riječ
+    ex: it[8] ? new RegExp(it[8]) : null,
+  });
 }
 
 (async () => {
@@ -75,14 +101,18 @@ for (const cat in P) for (const it of P[cat]) {
       const name = pick(r, ["name", "naziv", "product"]);
       const brand = pick(r, ["brand", "marka"]);
       if (!id || !name) return;
-      const n = strip(name + " " + brand);
-      const ts = terms.filter((t) => t.must.test(n) && !(t.ex && t.ex.test(n))).map((t) => t.id);
+      const n = strip(name).trim(), nb = strip(brand);
+      const ts = [];
+      for (const t of terms) {
+        if (PET.test(n + " " + nb) || (t.ex && t.ex.test(n + " " + nb))) continue;
+        if (t.start.test(n)) ts.push([t.id, 0]); else if (t.must.test(n)) ts.push([t.id, 1]);
+      }
       if (!ts.length) return;
       products.set(id, {
         ts, name: name.trim(), brand: brand.trim(),
         ean: pick(r, ["barcode", "ean"]).trim() || null,
         quantity: pick(r, ["quantity", "kolicina"]).trim(), unit: pick(r, ["unit", "jedinica"]).trim(),
-        price: null,
+        prices: [],
       });
     });
 
@@ -91,18 +121,25 @@ for (const cat in P) for (const it of P[cat]) {
       const p = products.get(pick(r, ["product_id", "id", "sifra", "code"]));
       if (!p) return;
       const price = Math.min(...[num(r.price), num(r.special_price), num(r.retail_price), num(r.regular_price)].filter(Boolean));
-      if (isFinite(price) && (p.price == null || price < p.price)) p.price = price;
+      if (isFinite(price)) p.prices.push(price);
     });
 
     const byTerm = {};
+    const estOf = Object.fromEntries(terms.map((t) => [t.id, t.est]));
     for (const p of products.values()) {
-      if (p.price == null) continue;
-      for (const t of p.ts) (byTerm[t] = byTerm[t] || []).push(p);
+      if (!p.prices.length) continue;
+      p.price = median(p.prices); // uobičajena cijena u lancu; izbacuje greške pojedinih poslovnica
+      for (const [t, tier] of p.ts) {
+        const ratio = p.price / estOf[t];
+        if (ratio < 0.3 || ratio > 3.5) continue; // premala pakiranja, greške i krivi proizvodi
+        (byTerm[t] = byTerm[t] || []).push({ ...p, tier });
+      }
     }
     const out = {};
     for (const t in byTerm) {
-      out[t] = byTerm[t].sort((a, b) => a.price - b.price).slice(0, KEEP)
-        .map(({ name, brand, ean, quantity, unit, price }) => ({ name, brand, ean, quantity, unit, price: Math.round(price * 100) / 100 }));
+      const best = Math.min(...byTerm[t].map((x) => x.tier));
+      out[t] = byTerm[t].filter((x) => x.tier === best).sort((a, b) => a.price - b.price).slice(0, KEEP)
+        .map(({ name, brand, ean, quantity, unit, price }) => ({ name: niceName(name), brand: niceName(brand), ean, quantity: niceQty(quantity, unit), unit: "", price: Math.round(price * 100) / 100 }));
     }
     result.chains[chain] = out;
     console.log(`${chain}: ${products.size} odgovarajućih proizvoda, ${Object.keys(out).length}/${terms.length} pojmova pokriveno`);

@@ -21,7 +21,7 @@ GitHub Action `Osvježi cijene` svako jutro oko 8:17:
 2. skriptom `scripts/build-prices.js` izvuče samo proizvode koje aplikacija koristi,
 3. spremi ih u `prices.json` i to commita.
 
-Aplikacija čita `prices.json`, pa ne treba nikakav ključ. Za svaki proizvod uzima najnižu cijenu u lancu, uključujući akcijske cijene,
+Aplikacija čita `prices.json`, pa ne treba nikakav ključ. Za svaki proizvod uzima uobičajenu (srednju) cijenu u lancu, uključujući akcijske cijene,
 pa u tvojoj poslovnici cijena može biti malo drukčija. Slike proizvoda dolaze s [Open Food Facts](https://world.openfoodfacts.org) prema barkodu, gdje postoje.
 
 Dok `prices.json` ne postoji, aplikacija prikazuje okvirne (procijenjene) cijene.
